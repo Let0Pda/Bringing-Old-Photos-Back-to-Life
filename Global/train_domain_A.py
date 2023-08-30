@@ -43,11 +43,9 @@ else:
 
 # opt.which_epoch=start_epoch-1
 model = create_da_model(opt)
-fd = open(path, 'w')
-fd.write(str(model.module.netG))
-fd.write(str(model.module.netD))
-fd.close()
-
+with open(path, 'w') as fd:
+    fd.write(str(model.module.netG))
+    fd.write(str(model.module.netD))
 total_steps = (start_epoch - 1) * dataset_size + epoch_iter
 
 display_delta = total_steps % opt.display_freq
