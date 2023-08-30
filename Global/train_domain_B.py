@@ -46,11 +46,9 @@ else:
 
 # opt.which_epoch=start_epoch-1
 model = create_model(opt)
-fd = open(path, 'w')
-fd.write(str(model.module.netG))
-fd.write(str(model.module.netD))
-fd.close()
-
+with open(path, 'w') as fd:
+    fd.write(str(model.module.netG))
+    fd.write(str(model.module.netD))
 total_steps = (start_epoch-1) * dataset_size + epoch_iter
 
 display_delta = total_steps % opt.display_freq
@@ -122,7 +120,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
         if epoch_iter >= dataset_size:
             break
-       
+
     # end of epoch 
     iter_end_time = time.time()
     print('End of epoch %d / %d \t Time Taken: %d sec' %

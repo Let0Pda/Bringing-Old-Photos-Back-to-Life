@@ -147,11 +147,10 @@ class Pix2PixHDModel(BaseModel):
             input_concat = test_image.detach()
         else:
             input_concat = torch.cat((input_label, test_image.detach()), dim=1)
-        if use_pool:            
-            fake_query = self.fake_pool.query(input_concat)
-            return self.netD.forward(fake_query)
-        else:
+        if not use_pool:
             return self.netD.forward(input_concat)
+        fake_query = self.fake_pool.query(input_concat)
+        return self.netD.forward(fake_query)
 
     def forward(self, label, inst, image, feat, infer=False):
         # Encode Inputs
@@ -180,8 +179,7 @@ class Pix2PixHDModel(BaseModel):
             loss_D_real = self.criterionGAN(pred_real, True)
 
             # GAN loss (Fake Passability Loss)        
-            pred_fake = self.netD.forward(fake_image)        
-            loss_G_GAN = self.criterionGAN(pred_fake, True)
+            pred_fake = self.netD.forward(fake_image)
         else:
             # Fake Detection and Loss
             pred_fake_pool = self.discriminate(input_label, fake_image, use_pool=True)
@@ -192,10 +190,8 @@ class Pix2PixHDModel(BaseModel):
             loss_D_real = self.criterionGAN(pred_real, True)
 
             # GAN loss (Fake Passability Loss)        
-            pred_fake = self.netD.forward(torch.cat((input_label, fake_image), dim=1))        
-            loss_G_GAN = self.criterionGAN(pred_fake, True) 
-        
-        
+            pred_fake = self.netD.forward(torch.cat((input_label, fake_image), dim=1))
+        loss_G_GAN = self.criterionGAN(pred_fake, True)
         loss_G_kl = torch.mean(torch.pow(hiddens, 2)) * self.opt.kl
 
         # GAN feature matching loss
@@ -206,8 +202,8 @@ class Pix2PixHDModel(BaseModel):
             for i in range(self.opt.num_D):
                 for j in range(len(pred_fake[i])-1):
                     loss_G_GAN_Feat += D_weights * feat_weights * \
-                        self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
-                   
+                            self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
+
         # VGG feature matching loss
         loss_G_VGG = 0
         if not self.opt.no_vgg_loss:
@@ -270,9 +266,7 @@ class Pix2PixHDModel(BaseModel):
         block_num = 32
         feat_map = self.netE.forward(image, inst.cuda())
         inst_np = inst.cpu().numpy().astype(int)
-        feature = {}
-        for i in range(self.opt.label_nc):
-            feature[i] = np.zeros((0, feat_num+1))
+        feature = {i: np.zeros((0, feat_num+1)) for i in range(self.opt.label_nc)}
         for i in np.unique(inst_np):
             label = i if i < 1000 else i//1000
             idx = (inst == int(i)).nonzero()
@@ -291,10 +285,7 @@ class Pix2PixHDModel(BaseModel):
         edge[:,:,:,:-1] = edge[:,:,:,:-1] | (t[:,:,:,1:] != t[:,:,:,:-1])
         edge[:,:,1:,:] = edge[:,:,1:,:] | (t[:,:,1:,:] != t[:,:,:-1,:])
         edge[:,:,:-1,:] = edge[:,:,:-1,:] | (t[:,:,1:,:] != t[:,:,:-1,:])
-        if self.opt.data_type==16:
-            return edge.half()
-        else:
-            return edge.float()
+        return edge.half() if self.opt.data_type==16 else edge.float()
 
     def save(self, which_epoch):
         self.save_network(self.netG, 'G', which_epoch, self.gpu_ids)

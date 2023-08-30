@@ -47,16 +47,10 @@ model = Pix2PixHDModel_Mapping()
 model.initialize(opt)
 
 path = os.path.join(opt.checkpoints_dir, opt.name, 'model.txt')
-fd = open(path, 'w')
-
-if opt.use_skip_model:
+with open(path, 'w') as fd:
+    if not opt.use_skip_model:
+        fd.write(str(model.netG_A))
     fd.write(str(model.mapping_net))
-    fd.close()
-else:
-    fd.write(str(model.netG_A))
-    fd.write(str(model.mapping_net))
-    fd.close()
-
 if opt.isTrain and len(opt.gpu_ids) > 1:
     model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
 
@@ -86,7 +80,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         #print(pair)
         losses, generated = model(Variable(data['label']), Variable(data['inst']), 
             Variable(data['image']), Variable(data['feat']), infer=save_fake)
-        
+
         # sum per device losses
         losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
         loss_dict = dict(zip(model.module.loss_names, losses))
@@ -139,7 +133,7 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
 
         if epoch_iter >= dataset_size:
             break
-       
+
     # end of epoch
     epoch_e_t=datetime.datetime.now()
     iter_end_time = time.time()
